@@ -66,16 +66,6 @@ impl<T> Default for MinMaxHeap<T> {
         MinMaxHeap::new()
     }
 }
-
-impl<T, A: Allocator> MinMaxHeap<T, A> {
-    /// Creates a new, empty `MinMaxHeap` with allocator.
-    ///
-    /// *O*(1).
-    pub fn new_in(alloc: A) -> Self {
-        MinMaxHeap(Vec::new_in(alloc))
-    }
-}
-
 impl<T> MinMaxHeap<T> {
     /// Creates a new, empty `MinMaxHeap`.
     ///
@@ -90,6 +80,15 @@ impl<T> MinMaxHeap<T> {
     /// *O*(n).
     pub fn with_capacity(len: usize) -> Self {
         MinMaxHeap(Vec::with_capacity(len))
+    }
+}
+
+impl<T, A: Allocator> MinMaxHeap<T, A> {
+    /// Creates a new, empty `MinMaxHeap` with allocator.
+    ///
+    /// *O*(1).
+    pub fn new_in(alloc: A) -> Self {
+        MinMaxHeap(Vec::new_in(alloc))
     }
 
     /// The number of elements in the heap.
