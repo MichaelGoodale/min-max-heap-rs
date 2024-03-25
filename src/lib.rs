@@ -51,7 +51,6 @@ mod hole;
 mod index;
 
 use allocator_api2::alloc::{Allocator, Global};
-use allocator_api2::vec;
 
 use self::hole::*;
 
@@ -65,6 +64,15 @@ pub struct MinMaxHeap<T, A: Allocator = Global>(Vec<T, A>);
 impl<T> Default for MinMaxHeap<T> {
     fn default() -> Self {
         MinMaxHeap::new()
+    }
+}
+
+impl<T, A: Allocator> MinMaxHeap<T, A> {
+    /// Creates a new, empty `MinMaxHeap` with allocator.
+    ///
+    /// *O*(1).
+    pub fn new_in(alloc: A) -> Self {
+        MinMaxHeap(Vec::new_in(alloc))
     }
 }
 
