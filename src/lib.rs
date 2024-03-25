@@ -39,16 +39,18 @@
 //!   <https://doc.rust-lang.org/1.56.1/src/alloc/collections/binary_heap.rs.html>
 
 #![warn(missing_docs)]
-
+#![feature(allocator_api)]
 #[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use std::iter::FromIterator;
-use std::{fmt, mem, slice, vec};
 use std::ops::{Deref, DerefMut};
+use std::{fmt, mem, slice, vec};
 
 mod hole;
 mod index;
+
+use std::alloc::{Allocator, Global};
 
 use self::hole::*;
 
@@ -57,7 +59,7 @@ use self::hole::*;
 /// Most operations are *O*(log *n*).
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct MinMaxHeap<T>(Vec<T>);
+pub struct MinMaxHeap<T, A: Allocator = Global>(Vec<T, A>);
 
 impl<T> Default for MinMaxHeap<T> {
     fn default() -> Self {
@@ -163,7 +165,13 @@ impl<T: Ord> MinMaxHeap<T> {
             0 => None,
             1 => Some(0),
             2 => Some(1),
-            _ => if slice[1] > slice[2] { Some(1) } else { Some(2) },
+            _ => {
+                if slice[1] > slice[2] {
+                    Some(1)
+                } else {
+                    Some(2)
+                }
+            }
         }
     }
 
@@ -566,19 +574,23 @@ pub struct Iter<'a, T: 'a>(slice::Iter<'a, T>);
 
 impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
-    fn next(&mut self) -> Option<Self::Item> { self.0.next() }
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
 }
 
-impl<'a, T> ExactSizeIterator for Iter<'a, T> { }
+impl<'a, T> ExactSizeIterator for Iter<'a, T> {}
 
 impl<'a, T> IntoIterator for &'a MinMaxHeap<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
-    fn into_iter(self) -> Self::IntoIter { self.iter() }
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }
 
 /// An owning iterator over the elements of the min-max-heap in
@@ -587,14 +599,16 @@ pub struct IntoIter<T>(vec::IntoIter<T>);
 
 impl<T> Iterator for IntoIter<T> {
     type Item = T;
-    fn next(&mut self) -> Option<Self::Item> { self.0.next() }
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
 }
 
-impl<T> ExactSizeIterator for IntoIter<T> { }
+impl<T> ExactSizeIterator for IntoIter<T> {}
 
 impl<'a, T> IntoIterator for MinMaxHeap<T> {
     type Item = T;
@@ -613,18 +627,22 @@ pub struct Drain<'a, T: 'a>(vec::Drain<'a, T>);
 
 impl<'a, T> Iterator for Drain<'a, T> {
     type Item = T;
-    fn next(&mut self) -> Option<Self::Item> { self.0.next() }
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
 }
 
-impl<'a, T> ExactSizeIterator for Drain<'a, T> { }
+impl<'a, T> ExactSizeIterator for Drain<'a, T> {}
 
 impl<T: Ord> FromIterator<T> for MinMaxHeap<T> {
     fn from_iter<I>(iter: I) -> Self
-            where I: IntoIterator<Item = T> {
+    where
+        I: IntoIterator<Item = T>,
+    {
         MinMaxHeap::from(iter.into_iter().collect::<Vec<T>>())
     }
 }
@@ -760,9 +778,7 @@ pub struct PeekMinMut<'a, T: Ord> {
 
 impl<T: Ord + fmt::Debug> fmt::Debug for PeekMinMut<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("PeekMinMut")
-         .field(&**self)
-         .finish()
+        f.debug_tuple("PeekMinMut").field(&**self).finish()
     }
 }
 
@@ -820,9 +836,7 @@ pub struct PeekMaxMut<'a, T: Ord> {
 
 impl<T: Ord + fmt::Debug> fmt::Debug for PeekMaxMut<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("PeekMaxMut")
-         .field(&**self)
-         .finish()
+        f.debug_tuple("PeekMaxMut").field(&**self).finish()
     }
 }
 
@@ -834,7 +848,7 @@ impl<'a, T: Ord> Drop for PeekMaxMut<'a, T> {
 
             if let Some(mut parent) = hole.get_parent() {
                 if parent.hole_element() < parent.other_element() {
-                   parent.swap_with();
+                    parent.swap_with();
                 }
             }
 
@@ -874,8 +888,8 @@ impl<'a, T: Ord> PeekMaxMut<'a, T> {
 mod tests {
     extern crate rand;
 
-    use super::*;
     use self::rand::seq::SliceRandom;
+    use super::*;
 
     #[test]
     fn example() {
@@ -905,30 +919,30 @@ mod tests {
     fn drain_asc() {
         let mut h = MinMaxHeap::from(vec![3, 2, 4, 1]);
         let mut i = h.drain_asc();
-        assert_eq!( i.next(), Some(1) );
-        assert_eq!( i.next(), Some(2) );
-        assert_eq!( i.next(), Some(3) );
-        assert_eq!( i.next(), Some(4) );
-        assert_eq!( i.next(), None );
+        assert_eq!(i.next(), Some(1));
+        assert_eq!(i.next(), Some(2));
+        assert_eq!(i.next(), Some(3));
+        assert_eq!(i.next(), Some(4));
+        assert_eq!(i.next(), None);
     }
 
     // This test catches a lot:
     #[test]
     fn random_vectors() {
-        for i in 0 .. 300 {
+        for i in 0..300 {
             check_heap(&random_heap(i));
         }
     }
 
     #[test]
     fn from_vector() {
-        for i in 0 .. 300 {
+        for i in 0..300 {
             check_heap(&MinMaxHeap::from(random_vec(i)))
         }
     }
 
     fn check_heap(heap: &MinMaxHeap<usize>) {
-        let asc  = iota_asc(heap.len());
+        let asc = iota_asc(heap.len());
         let desc = iota_desc(heap.len());
 
         assert_eq!(asc, into_vec_asc(heap.clone()));
@@ -938,7 +952,7 @@ mod tests {
     }
 
     fn random_vec(len: usize) -> Vec<usize> {
-        let mut result = (0 .. len).collect::<Vec<_>>();
+        let mut result = (0..len).collect::<Vec<_>>();
         result.shuffle(&mut rand::thread_rng());
         result
     }
@@ -964,11 +978,11 @@ mod tests {
     }
 
     fn iota_asc(len: usize) -> Vec<usize> {
-        (0 .. len).collect()
+        (0..len).collect()
     }
 
     fn iota_desc(len: usize) -> Vec<usize> {
-        let mut result = (0 .. len).collect::<Vec<_>>();
+        let mut result = (0..len).collect::<Vec<_>>();
         result.reverse();
         result
     }
