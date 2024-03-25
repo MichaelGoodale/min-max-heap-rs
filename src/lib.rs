@@ -39,18 +39,19 @@
 //!   <https://doc.rust-lang.org/1.56.1/src/alloc/collections/binary_heap.rs.html>
 
 #![warn(missing_docs)]
-#![feature(allocator_api)]
+use allocator_api2::vec::Vec;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use std::iter::FromIterator;
 use std::ops::{Deref, DerefMut};
-use std::{fmt, mem, slice, vec};
+use std::{fmt, mem, slice};
 
 mod hole;
 mod index;
 
-use std::alloc::{Allocator, Global};
+use allocator_api2::alloc::{Allocator, Global};
+use allocator_api2::vec;
 
 use self::hole::*;
 
@@ -406,6 +407,7 @@ impl<T: Ord> MinMaxHeap<T> {
     /// Basic usage:
     ///
     /// ```
+    /// # use allocator_api2::vec;
     /// use min_max_heap::MinMaxHeap;
     ///
     /// let mut heap = MinMaxHeap::from(vec![-10, -5, 1, 2, 4, 13]);
@@ -595,7 +597,7 @@ impl<'a, T> IntoIterator for &'a MinMaxHeap<T> {
 
 /// An owning iterator over the elements of the min-max-heap in
 /// arbitrary order.
-pub struct IntoIter<T>(vec::IntoIter<T>);
+pub struct IntoIter<T>(allocator_api2::vec::IntoIter<T>);
 
 impl<T> Iterator for IntoIter<T> {
     type Item = T;
@@ -623,7 +625,7 @@ impl<'a, T> IntoIterator for MinMaxHeap<T> {
 ///
 /// This type is created with
 /// [`MinMaxHeap::drain`](struct.MinMaxHeap.html#method.drain).
-pub struct Drain<'a, T: 'a>(vec::Drain<'a, T>);
+pub struct Drain<'a, T: 'a>(allocator_api2::vec::Drain<'a, T>);
 
 impl<'a, T> Iterator for Drain<'a, T> {
     type Item = T;
@@ -890,6 +892,7 @@ mod tests {
 
     use self::rand::seq::SliceRandom;
     use super::*;
+    use allocator_api2::vec;
 
     #[test]
     fn example() {
