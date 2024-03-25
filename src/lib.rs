@@ -106,7 +106,7 @@ impl<T, A: Allocator> MinMaxHeap<T, A> {
     }
 }
 
-impl<T: Ord> MinMaxHeap<T> {
+impl<T: Ord, A: Allocator> MinMaxHeap<T, A> {
     /// Adds an element to the heap.
     ///
     /// Amortized *O*(log *n*); worst-case *O*(*n*) when the backing vector needs to
@@ -134,7 +134,7 @@ impl<T: Ord> MinMaxHeap<T> {
     /// inconsistent state.
     ///
     /// *O*(1) for the peek; *O*(log *n*) when the reference is dropped.
-    pub fn peek_min_mut(&mut self) -> Option<PeekMinMut<T>> {
+    pub fn peek_min_mut(&mut self) -> Option<PeekMinMut<T, A>> {
         if self.is_empty() {
             None
         } else {
@@ -160,7 +160,7 @@ impl<T: Ord> MinMaxHeap<T> {
     /// inconsistent state.
     ///
     /// *O*(1) for the peek; *O*(log *n*) when the reference is dropped.
-    pub fn peek_max_mut(&mut self) -> Option<PeekMaxMut<T>> {
+    pub fn peek_max_mut(&mut self) -> Option<PeekMaxMut<T, A>> {
         self.find_max().map(move |i| PeekMaxMut {
             heap: self,
             max_index: i,
@@ -369,7 +369,7 @@ impl<T: Ord> MinMaxHeap<T> {
     /// storage.
     ///
     /// *O*(*n* log *n*).
-    pub fn into_vec_asc(mut self) -> Vec<T> {
+    pub fn into_vec_asc(mut self) -> Vec<T, A> {
         let mut elements = &mut *self.0;
         while elements.len() > 1 {
             let max = Self::find_max_slice(elements).unwrap();
@@ -390,7 +390,7 @@ impl<T: Ord> MinMaxHeap<T> {
     /// storage.
     ///
     /// *O*(*n* log *n*).
-    pub fn into_vec_desc(mut self) -> Vec<T> {
+    pub fn into_vec_desc(mut self) -> Vec<T, A> {
         let mut elements = &mut *self.0;
         while elements.len() > 1 {
             let (last, elements_rest) = elements.split_last_mut().unwrap();
@@ -483,7 +483,7 @@ impl<T: Ord> MinMaxHeap<T> {
     }
 }
 
-impl<T> MinMaxHeap<T> {
+impl<T, A: Allocator> MinMaxHeap<T, A> {
     /// Drops all items from the heap.
     ///
     /// *O*(*n*)
@@ -533,7 +533,7 @@ impl<T> MinMaxHeap<T> {
     /// in arbitrary order.
     ///
     /// *O*(*n*)
-    pub fn into_vec(self) -> Vec<T> {
+    pub fn into_vec(self) -> Vec<T, A> {
         self.0
     }
 
@@ -549,7 +549,7 @@ impl<T> MinMaxHeap<T> {
     /// arbitrary order.
     ///
     /// *O*(1) on creation, and *O*(1) for each `next()` operation.
-    pub fn drain(&mut self) -> Drain<T> {
+    pub fn drain(&mut self) -> Drain<T, A> {
         Drain(self.0.drain(..))
     }
 
@@ -557,7 +557,7 @@ impl<T> MinMaxHeap<T> {
     /// ascending (min-first) order.
     ///
     /// *O*(1) on creation, and *O*(log *n*) for each `next()` operation.
-    pub fn drain_asc(&mut self) -> DrainAsc<T> {
+    pub fn drain_asc(&mut self) -> DrainAsc<T, A> {
         DrainAsc(self)
     }
 
@@ -565,7 +565,7 @@ impl<T> MinMaxHeap<T> {
     /// descending (max-first) order.
     ///
     /// *O*(1) on creation, and *O*(log *n*) for each `next()` operation.
-    pub fn drain_desc(&mut self) -> DrainDesc<T> {
+    pub fn drain_desc(&mut self) -> DrainDesc<T, A> {
         DrainDesc(self)
     }
 }
@@ -632,9 +632,9 @@ impl<'a, T> IntoIterator for MinMaxHeap<T> {
 ///
 /// This type is created with
 /// [`MinMaxHeap::drain`](struct.MinMaxHeap.html#method.drain).
-pub struct Drain<'a, T: 'a>(allocator_api2::vec::Drain<'a, T>);
+pub struct Drain<'a, T: 'a, A: Allocator>(allocator_api2::vec::Drain<'a, T, A>);
 
-impl<'a, T> Iterator for Drain<'a, T> {
+impl<'a, T, A: Allocator> Iterator for Drain<'a, T, A> {
     type Item = T;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
@@ -645,7 +645,7 @@ impl<'a, T> Iterator for Drain<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for Drain<'a, T> {}
+impl<'a, T, A: Allocator> ExactSizeIterator for Drain<'a, T, A> {}
 
 impl<T: Ord> FromIterator<T> for MinMaxHeap<T> {
     fn from_iter<I>(iter: I) -> Self
@@ -666,7 +666,7 @@ impl<T: Ord> FromIterator<T> for MinMaxHeap<T> {
 /// This type is created with
 /// [`MinMaxHeap::drain_asc`](struct.MinMaxHeap.html#method.drain_asc).
 #[derive(Debug)]
-pub struct DrainAsc<'a, T: 'a>(&'a mut MinMaxHeap<T>);
+pub struct DrainAsc<'a, T: 'a, A: Allocator>(&'a mut MinMaxHeap<T, A>);
 
 /// A draining iterator over the elements of the min-max-heap in
 /// descending (max-first) order.
@@ -678,21 +678,21 @@ pub struct DrainAsc<'a, T: 'a>(&'a mut MinMaxHeap<T>);
 /// This type is created with
 /// [`MinMaxHeap::drain_desc`](struct.MinMaxHeap.html#method.drain_desc).
 #[derive(Debug)]
-pub struct DrainDesc<'a, T: 'a>(&'a mut MinMaxHeap<T>);
+pub struct DrainDesc<'a, T: 'a, A: Allocator>(&'a mut MinMaxHeap<T, A>);
 
-impl<'a, T> Drop for DrainAsc<'a, T> {
+impl<'a, T, A: Allocator> Drop for DrainAsc<'a, T, A> {
     fn drop(&mut self) {
         let _ = (self.0).0.drain(..);
     }
 }
 
-impl<'a, T> Drop for DrainDesc<'a, T> {
+impl<'a, T, A: Allocator> Drop for DrainDesc<'a, T, A> {
     fn drop(&mut self) {
         let _ = (self.0).0.drain(..);
     }
 }
 
-impl<'a, T: Ord> Iterator for DrainAsc<'a, T> {
+impl<'a, T: Ord, A: Allocator> Iterator for DrainAsc<'a, T, A> {
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
@@ -704,7 +704,7 @@ impl<'a, T: Ord> Iterator for DrainAsc<'a, T> {
     }
 }
 
-impl<'a, T: Ord> Iterator for DrainDesc<'a, T> {
+impl<'a, T: Ord, A: Allocator> Iterator for DrainDesc<'a, T, A> {
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
@@ -716,25 +716,25 @@ impl<'a, T: Ord> Iterator for DrainDesc<'a, T> {
     }
 }
 
-impl<'a, T: Ord> DoubleEndedIterator for DrainAsc<'a, T> {
+impl<'a, T: Ord, A: Allocator> DoubleEndedIterator for DrainAsc<'a, T, A> {
     fn next_back(&mut self) -> Option<T> {
         self.0.pop_max()
     }
 }
 
-impl<'a, T: Ord> DoubleEndedIterator for DrainDesc<'a, T> {
+impl<'a, T: Ord, A: Allocator> DoubleEndedIterator for DrainDesc<'a, T, A> {
     fn next_back(&mut self) -> Option<T> {
         self.0.pop_min()
     }
 }
 
-impl<'a, T: Ord> ExactSizeIterator for DrainAsc<'a, T> {
+impl<'a, T: Ord, A: Allocator> ExactSizeIterator for DrainAsc<'a, T, A> {
     fn len(&self) -> usize {
         self.0.len()
     }
 }
 
-impl<'a, T: Ord> ExactSizeIterator for DrainDesc<'a, T> {
+impl<'a, T: Ord, A: Allocator> ExactSizeIterator for DrainDesc<'a, T, A> {
     fn len(&self) -> usize {
         self.0.len()
     }
@@ -780,18 +780,18 @@ impl<'a, T: Ord + Clone + 'a> Extend<&'a T> for MinMaxHeap<T> {
 ///
 /// [`peek_min_mut`]: struct.MinMaxHeap.html#method.peek_min_mut
 /// [`MinMaxHeap`]: struct.MinMaxHeap.html
-pub struct PeekMinMut<'a, T: Ord> {
-    heap: &'a mut MinMaxHeap<T>,
+pub struct PeekMinMut<'a, T: Ord, A: Allocator> {
+    heap: &'a mut MinMaxHeap<T, A>,
     sift: bool,
 }
 
-impl<T: Ord + fmt::Debug> fmt::Debug for PeekMinMut<'_, T> {
+impl<T: Ord + fmt::Debug, A: Allocator> fmt::Debug for PeekMinMut<'_, T, A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("PeekMinMut").field(&**self).finish()
     }
 }
 
-impl<'a, T: Ord> Drop for PeekMinMut<'a, T> {
+impl<'a, T: Ord, A: Allocator> Drop for PeekMinMut<'a, T, A> {
     fn drop(&mut self) {
         if self.sift {
             // SAFETY: `heap` is not empty
@@ -802,7 +802,7 @@ impl<'a, T: Ord> Drop for PeekMinMut<'a, T> {
     }
 }
 
-impl<'a, T: Ord> Deref for PeekMinMut<'a, T> {
+impl<'a, T: Ord, A: Allocator> Deref for PeekMinMut<'a, T, A> {
     type Target = T;
     fn deref(&self) -> &T {
         debug_assert!(!self.heap.is_empty());
@@ -811,7 +811,7 @@ impl<'a, T: Ord> Deref for PeekMinMut<'a, T> {
     }
 }
 
-impl<'a, T: Ord> DerefMut for PeekMinMut<'a, T> {
+impl<'a, T: Ord, A: Allocator> DerefMut for PeekMinMut<'a, T, A> {
     fn deref_mut(&mut self) -> &mut T {
         debug_assert!(!self.heap.is_empty());
         self.sift = true;
@@ -820,7 +820,7 @@ impl<'a, T: Ord> DerefMut for PeekMinMut<'a, T> {
     }
 }
 
-impl<'a, T: Ord> PeekMinMut<'a, T> {
+impl<'a, T: Ord, A: Allocator> PeekMinMut<'a, T, A> {
     /// Removes the peeked value from the heap and returns it.
     pub fn pop(mut self) -> T {
         // Sift is unnecessary since pop_min() already reorders heap
@@ -837,19 +837,19 @@ impl<'a, T: Ord> PeekMinMut<'a, T> {
 ///
 /// [`peek_max_mut`]: struct.MinMaxHeap.html#method.peek_max_mut
 /// [`MinMaxHeap`]: struct.MinMaxHeap.html
-pub struct PeekMaxMut<'a, T: Ord> {
-    heap: &'a mut MinMaxHeap<T>,
+pub struct PeekMaxMut<'a, T: Ord, A: Allocator> {
+    heap: &'a mut MinMaxHeap<T, A>,
     max_index: usize,
     sift: bool,
 }
 
-impl<T: Ord + fmt::Debug> fmt::Debug for PeekMaxMut<'_, T> {
+impl<T: Ord + fmt::Debug, A: Allocator> fmt::Debug for PeekMaxMut<'_, T, A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("PeekMaxMut").field(&**self).finish()
     }
 }
 
-impl<'a, T: Ord> Drop for PeekMaxMut<'a, T> {
+impl<'a, T: Ord, A: Allocator> Drop for PeekMaxMut<'a, T, A> {
     fn drop(&mut self) {
         if self.sift {
             // SAFETY: `max_index` is a valid index in `heap`
@@ -866,7 +866,7 @@ impl<'a, T: Ord> Drop for PeekMaxMut<'a, T> {
     }
 }
 
-impl<'a, T: Ord> Deref for PeekMaxMut<'a, T> {
+impl<'a, T: Ord, A: Allocator> Deref for PeekMaxMut<'a, T, A> {
     type Target = T;
     fn deref(&self) -> &T {
         debug_assert!(self.max_index < self.heap.len());
@@ -875,7 +875,7 @@ impl<'a, T: Ord> Deref for PeekMaxMut<'a, T> {
     }
 }
 
-impl<'a, T: Ord> DerefMut for PeekMaxMut<'a, T> {
+impl<'a, T: Ord, A: Allocator> DerefMut for PeekMaxMut<'a, T, A> {
     fn deref_mut(&mut self) -> &mut T {
         debug_assert!(self.max_index < self.heap.len());
         self.sift = true;
@@ -884,7 +884,7 @@ impl<'a, T: Ord> DerefMut for PeekMaxMut<'a, T> {
     }
 }
 
-impl<'a, T: Ord> PeekMaxMut<'a, T> {
+impl<'a, T: Ord, A: Allocator> PeekMaxMut<'a, T, A> {
     /// Removes the peeked value from the heap and returns it.
     pub fn pop(mut self) -> T {
         // Sift is unnecessary since pop_max() already reorders heap
